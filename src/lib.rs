@@ -1,5 +1,3 @@
-use core::panic;
-
 use heck::{
     ToKebabCase, ToLowerCamelCase, ToPascalCase, ToShoutySnakeCase, ToSnakeCase, ToUpperCamelCase,
 };
@@ -13,15 +11,13 @@ use syn::{
     Token,
 };
 
-const ATTR_NAME: &str = "dbx_clap";
-
 #[derive(Debug, Default)]
 struct Options {
     prefix: Option<String>,
 }
 
 #[proc_macro_attribute]
-pub fn dbx_clap(
+pub fn clap_wrapper(
     main_attr: proc_macro::TokenStream,
     input: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
@@ -41,7 +37,7 @@ pub fn dbx_clap(
                 };
                 opts.prefix = Some(prefix);
             }
-            _ => panic!("unrecognized #[{ATTR_NAME}] attribute {key:?}"),
+            _ => return Error::new_spanned(expr.left, "unrecognized attribute").to_compile_error().into(),
         }
     }
 

@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use clap::Parser;
-use clap_wrapper::dbx_clap;
+use clap_wrapper::clap_wrapper;
 
 /// Some cool struct that I want to fold into a bigger options struct.
-#[dbx_clap(prefix = "myprefix")]
+#[clap_wrapper(prefix = "myprefix")]
 #[derive(Parser, Debug)]
 #[clap(rename_all = "camel")]
 struct MyArgs {
