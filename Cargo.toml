@@ -7,9 +7,11 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-clap_derive = "4.4.7"
-clap = { version = "4.4.10", features = ["derive"] }
 heck = "0.4.1"
 proc-macro2 = "1.0.70"
 quote = "1.0.33"
-syn = { version = "2.0.39", features = ["printing", "extra-traits"] } # extra-traits for debugging
+syn = { version = "2.0.39", features = ["full", "extra-traits"] } # extra-traits for debugging
+
+[dev-dependencies]
+clap_derive = "4.4.7"
+clap = { version = "4.4.10", features = ["derive"] }
