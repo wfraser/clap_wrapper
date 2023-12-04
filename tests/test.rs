@@ -1,5 +1,5 @@
-use clap_wrapper::clap_wrapper;
 use clap::Parser;
+use clap_wrapper::clap_wrapper;
 
 #[test]
 fn test() {
@@ -55,7 +55,7 @@ fn test() {
         inner2: B,
     }
 
-    let s = Outer::try_parse_from([
+    let s = Outer::parse_from([
         "foo",
         "--prefix1.a=a",
         "--prefix1.renamed1=b",
@@ -69,23 +69,26 @@ fn test() {
         "--prefix2.boolSeparateWord",
         "true",
         "--prefix2.boolWithEquals=true",
-        ]).unwrap();
+    ]);
 
-    assert_eq!(s, Outer {
-        inner1: A {
-            a: "a".to_owned(),
-            b: "b".to_owned(),
-            c: "c".to_owned(),
-        },
-        inner2: B {
-            field_name: "d".to_owned(),
-            bool_required: false,
-            bool_def1: true,
-            bool_def2: true,
-            bool_def3: true,
-            bool_just_flag: true,
-            bool_separate_word: true,
-            bool_with_equals: true,
+    assert_eq!(
+        s,
+        Outer {
+            inner1: A {
+                a: "a".to_owned(),
+                b: "b".to_owned(),
+                c: "c".to_owned(),
+            },
+            inner2: B {
+                field_name: "d".to_owned(),
+                bool_required: false,
+                bool_def1: true,
+                bool_def2: true,
+                bool_def3: true,
+                bool_just_flag: true,
+                bool_separate_word: true,
+                bool_with_equals: true,
+            }
         }
-    });
+    );
 }
