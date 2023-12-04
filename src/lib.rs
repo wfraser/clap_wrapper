@@ -93,7 +93,6 @@ fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
                         syn::parse_quote! {
                             #[arg(
                                 num_args(0..=1),
-                                require_equals(true),
                                 action=clap::ArgAction::Set,
                                 // This is for when the flag is specified without any value (i.e. as
                                 // "--flag", not "--flag=whatever). Setting this to anything except True
