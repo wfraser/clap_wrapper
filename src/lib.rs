@@ -9,7 +9,8 @@ use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, DataStruct, DeriveInput, Error, Expr, ExprAssign, ExprLit, Lit, Token,
+    parse_macro_input, DataStruct, DeriveInput, Error, Expr, ExprAssign, ExprLit, Lit, LitBool,
+    Token,
 };
 
 const ATTR_NAME: &str = "dbx_clap";
@@ -51,6 +52,10 @@ pub fn dbx_clap(
         }
     }
 
+    if let Err(e) = add_better_boolean_attrs(&mut input) {
+        return e.into_compile_error().into();
+    }
+
     let mut ts = TokenStream::new();
     input.to_tokens(&mut ts);
     ts.into()
@@ -62,6 +67,109 @@ fn clap_to_lower(s: &str) -> String {
 
 fn clap_to_upper(s: &str) -> String {
     ToShoutySnakeCase::to_shouty_snake_case(s).replace('_', "")
+}
+
+fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
+    match &mut input.data {
+        syn::Data::Struct(DataStruct { fields, .. }) => {
+            for field in fields {
+                if field.ty.to_token_stream().to_string() == "bool" {
+                    println!("improving field {:?}", field.ident);
+
+                    // look for 'default_value' or 'default_value_t'
+                    let mut default = None;
+                    for attr in &field.attrs {
+                        if let syn::Meta::List(list) = &attr.meta {
+                            if list.path.to_token_stream().to_string() == "arg" {
+                                let exprs = Punctuated::<Expr, Token![,]>::parse_terminated
+                                    .parse2(list.tokens.clone())?;
+                                for expr in exprs {
+                                    match expr {
+                                        Expr::Assign(expr) => {
+                                            default = Some(
+                                                match expr
+                                                    .left
+                                                    .to_token_stream()
+                                                    .to_string()
+                                                    .as_str()
+                                                {
+                                                    "default_value" => {
+                                                        expr_literal(&expr.right)? == "true"
+                                                    }
+                                                    "default_value_t" => {
+                                                        match expr.right.as_ref() {
+                                                            Expr::Lit(ExprLit {
+                                                                lit:
+                                                                    Lit::Bool(LitBool { value, .. }),
+                                                                ..
+                                                            }) => *value,
+                                                            _ => {
+                                                                return Err(Error::new_spanned(
+                                                                    expr.right,
+                                                                    "expected a bool literal",
+                                                                ))
+                                                            }
+                                                        }
+                                                    }
+                                                    _ => continue,
+                                                },
+                                            );
+                                        }
+                                        Expr::Call(call) => {
+                                            // default_value_t isn't a function
+                                            if call.func.to_token_stream().to_string()
+                                                == "default_value"
+                                            {
+                                                let arg = match call.args.first() {
+                                                    Some(arg) => arg,
+                                                    None => {
+                                                        return Err(Error::new_spanned(
+                                                            call,
+                                                            "expected a single arg",
+                                                        ))
+                                                    }
+                                                };
+                                                default = Some(expr_literal(arg)? == "true");
+                                            }
+                                        }
+                                        _ => (),
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Insert at the front, so later (i.e. manually-specified) attributes want to
+                    // override it, they can.
+                    field.attrs.insert(0, syn::parse_quote! {
+                        #[arg(num_args(0..=1), require_equals(true), action=clap::ArgAction::Set)]
+                    });
+
+                    // Note that default_missing_value is for when the flag is specified without
+                    // any value (i.e. --flag, not --flag=whatever). Setting this to anything
+                    // except True would be super confusing.
+                    if let Some(default) = default {
+                        field.attrs.insert(
+                            1,
+                            syn::parse_quote! {
+                                #[arg(default_value_t = #default, default_missing_value = "true")]
+                            },
+                        );
+                    } else {
+                        field.attrs.insert(
+                            1,
+                            syn::parse_quote! {
+                                #[arg(default_missing_value = "true")]
+                            },
+                        );
+                    }
+                }
+            }
+        }
+        syn::Data::Enum(_) => todo!(),
+        syn::Data::Union(_) => todo!(),
+    }
+    Ok(())
 }
 
 fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Result<()> {
