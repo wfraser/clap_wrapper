@@ -67,7 +67,6 @@ dependencies = [
  "clap",
  "clap_derive",
  "heck",
- "proc-macro2",
  "quote",
  "syn",
 ]
