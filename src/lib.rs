@@ -7,8 +7,8 @@ use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, DataStruct, DeriveInput, Error, Expr, ExprAssign, ExprLit, Lit, LitBool,
-    Token,
+    parse_macro_input, DataStruct, DeriveInput, Error, Expr, ExprAssign, ExprLit, ExprPath, Lit,
+    LitBool, Token,
 };
 
 #[derive(Debug, Default)]
@@ -27,7 +27,7 @@ pub fn clap_wrapper(
             Ok(exprs) => exprs,
             Err(e) => return e.to_compile_error().into(),
         };
-    for expr in attr_exprs {
+    for expr in &attr_exprs {
         let key = expr.left.to_token_stream().to_string();
         match key.as_str() {
             "prefix" => {
@@ -37,11 +37,25 @@ pub fn clap_wrapper(
                 };
                 opts.prefix = Some(prefix);
             }
-            _ => return Error::new_spanned(expr.left, "unrecognized attribute").to_compile_error().into(),
+            _ => {
+                return Error::new_spanned(&expr.left, "unrecognized attribute")
+                    .to_compile_error()
+                    .into()
+            }
         }
     }
 
     let mut input: DeriveInput = parse_macro_input!(input);
+
+    if let Ok(false) = any_clap_here(&input) {
+        return Error::new_spanned(
+            attr_exprs,
+            "this attribute needs to be put before any #[derive(Parser)]?",
+        )
+        .into_compile_error()
+        .into();
+    }
+
     if let Some(prefix) = opts.prefix {
         if let Err(e) = add_prefix_to_everything(&prefix, &mut input) {
             return e.into_compile_error().into();
@@ -65,18 +79,29 @@ fn clap_to_upper(s: &str) -> String {
     ToShoutySnakeCase::to_shouty_snake_case(s).replace('_', "")
 }
 
+fn any_clap_here(input: &DeriveInput) -> syn::Result<bool> {
+    for attr in &input.attrs {
+        if attr.path().is_ident("derive") {
+            let derives =
+                attr.parse_args_with(Punctuated::<ExprPath, Token![,]>::parse_terminated)?;
+            if derives.into_iter().any(|path| path.path.is_ident("Parser")) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
     match &mut input.data {
         syn::Data::Struct(DataStruct { fields, .. }) => {
             for field in fields {
                 if field.ty.to_token_stream().to_string() == "bool" {
-                    println!("improving field {:?}", field.ident);
-
                     // look for 'default_value' or 'default_value_t'
                     let mut default = None;
                     for attr in &field.attrs {
                         if let syn::Meta::List(list) = &attr.meta {
-                            if list.path.to_token_stream().to_string() == "arg" {
+                            if list.path.is_ident("arg") {
                                 let exprs = Punctuated::<Expr, Token![,]>::parse_terminated
                                     .parse2(list.tokens.clone())?;
                                 for expr in exprs {
@@ -173,42 +198,41 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
 
     for attr in &input.attrs {
         if let syn::Meta::List(list) = &attr.meta {
-            let head = list.path.to_token_stream().to_string();
-            if head == "clap" || head == "command" {
-                let exprs =
-                    Punctuated::<Expr, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
-                for expr in exprs {
-                    match expr {
-                        Expr::Assign(expr)
-                            if expr.left.to_token_stream().to_string() == "rename_all" =>
-                        {
-                            let style = expr_literal(&expr.right)?;
-                            let mut norm = style.to_upper_camel_case().to_lowercase();
-                            norm = norm
-                                .strip_suffix("case")
-                                .map(ToOwned::to_owned)
-                                .unwrap_or(norm);
-                            name_style = match norm.as_str() {
-                                "pascal" => <str as ToPascalCase>::to_pascal_case,
-                                "kebab" => <str as ToKebabCase>::to_kebab_case,
-                                "camel" => <str as ToLowerCamelCase>::to_lower_camel_case,
-                                "screamingsnake" => {
-                                    <str as ToShoutySnakeCase>::to_shouty_snake_case
-                                }
-                                "snake" => <str as ToSnakeCase>::to_snake_case,
-                                "lower" => clap_to_lower,
-                                "upper" => clap_to_upper,
-                                "verbatim" => str::to_owned,
-                                _ => {
-                                    return Err(Error::new_spanned(
-                                        expr.right,
-                                        "unrecognized rename style",
-                                    ))
-                                }
+            match list.path.get_ident() {
+                Some(id) if id == "clap" || id == "command" => (),
+                _ => continue,
+            }
+            let exprs =
+                Punctuated::<Expr, Token![,]>::parse_terminated.parse2(list.tokens.clone())?;
+            for expr in exprs {
+                match expr {
+                    Expr::Assign(expr)
+                        if expr.left.to_token_stream().to_string() == "rename_all" =>
+                    {
+                        let style = expr_literal(&expr.right)?;
+                        let mut norm = style.to_upper_camel_case().to_lowercase();
+                        norm = norm
+                            .strip_suffix("case")
+                            .map(ToOwned::to_owned)
+                            .unwrap_or(norm);
+                        name_style = match norm.as_str() {
+                            "pascal" => <str as ToPascalCase>::to_pascal_case,
+                            "kebab" => <str as ToKebabCase>::to_kebab_case,
+                            "camel" => <str as ToLowerCamelCase>::to_lower_camel_case,
+                            "screamingsnake" => <str as ToShoutySnakeCase>::to_shouty_snake_case,
+                            "snake" => <str as ToSnakeCase>::to_snake_case,
+                            "lower" => clap_to_lower,
+                            "upper" => clap_to_upper,
+                            "verbatim" => str::to_owned,
+                            _ => {
+                                return Err(Error::new_spanned(
+                                    expr.right,
+                                    "unrecognized rename style",
+                                ))
                             }
                         }
-                        _ => (),
                     }
+                    _ => (),
                 }
             }
         }
@@ -268,9 +292,7 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                                         }
                                     }
                                     // long
-                                    Expr::Path(path)
-                                        if path.to_token_stream().to_string() == "long" =>
-                                    {
+                                    Expr::Path(path) if path.path.is_ident("long") => {
                                         let name = format!("{prefix}.{}", name_style(&field_name));
                                         *expr = syn::parse_quote_spanned! { path.span() => long(#name) };
                                     }
