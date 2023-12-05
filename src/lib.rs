@@ -166,7 +166,11 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                 .to_string();
             for attr in &mut field.attrs {
                 if let Meta::List(list) = &mut attr.meta {
-                    let head = list.path.get_ident().map(ToString::to_string).unwrap_or_default();
+                    let head = list
+                        .path
+                        .get_ident()
+                        .map(ToString::to_string)
+                        .unwrap_or_default();
                     if head == "clap" {
                         return Err(Error::new_spanned(field, "do not use the #[clap] attribute on fields; use #[arg] or #[command] instead"));
                     } else if head == "arg" {
@@ -175,18 +179,17 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
 
                         // Unless ID was explicitly set, add the prefix to it to prevent
                         // collisions with other structs.
-                        let explicit_id = exprs
-                            .iter()
-                            .any(|x| {
-                                let head = match x {
-                                    Expr::Call(expr) => &expr.func,
-                                    Expr::Assign(expr) => &expr.left,
-                                    _ => return false,
-                                };
-                                head.to_token_stream().to_string() == "id"
-                            });
+                        let explicit_id = exprs.iter().any(|x| {
+                            let head = match x {
+                                Expr::Call(expr) => &expr.func,
+                                Expr::Assign(expr) => &expr.left,
+                                _ => return false,
+                            };
+                            head.to_token_stream().to_string() == "id"
+                        });
                         if !explicit_id {
-                            let prefixed_id = format!("{prefix}.{field_name}").to_shouty_snake_case();
+                            let prefixed_id =
+                                format!("{prefix}.{field_name}").to_shouty_snake_case();
                             exprs.push(syn::parse_quote! {
                                 id(#prefixed_id)
                             });
@@ -195,13 +198,16 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                         // Presence of a made-up "noprefix" attribute disables any prefixing of the
                         // flag.
                         let mut noprefix = false;
-                        exprs = exprs.into_iter()
-                            .filter(|x| if matches!(x, Expr::Path(p) if p.path.is_ident("noprefix")) {
-                                noprefix = true;
-                                // Remove this expression so clap doesn't choke on it.
-                                false
-                            } else {
-                                true
+                        exprs = exprs
+                            .into_iter()
+                            .filter(|x| {
+                                if matches!(x, Expr::Path(p) if p.path.is_ident("noprefix")) {
+                                    noprefix = true;
+                                    // Remove this expression so clap doesn't choke on it.
+                                    false
+                                } else {
+                                    true
+                                }
                             })
                             .collect();
                         if noprefix {
