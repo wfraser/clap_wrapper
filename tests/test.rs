@@ -27,6 +27,9 @@ fn test() {
         field_name: String,
 
         #[arg(long)]
+        a: i32,
+
+        #[arg(long)]
         bool_required: bool,
 
         #[arg(long, default_value = "false")]
@@ -64,6 +67,7 @@ fn test() {
         "--prefix1.renamed1=b",
         "--prefix1.renamed2=c",
         "--jk-lol=999",
+        "--prefix2.a=8675309",
         "--prefix2.fieldName=d",
         "--prefix2.boolRequired=false",
         "--prefix2.boolDef1=true",
@@ -86,6 +90,7 @@ fn test() {
             },
             inner2: B {
                 field_name: "d".to_owned(),
+                a: 8675309,
                 bool_required: false,
                 bool_def1: true,
                 bool_def2: true,
