@@ -29,16 +29,16 @@ fn test() {
         #[arg(long)]
         a: i32,
 
-        #[arg(long)]
+        #[arg(long, required(true))]
         bool_required: bool,
 
-        #[arg(long, default_value = "false")]
+        #[arg(long, default_value = "true")]
         bool_def1: bool,
 
-        #[arg(long, default_value_t = false)]
+        #[arg(long, default_value_t = true)]
         bool_def2: bool,
 
-        #[arg(long, default_value("false"))]
+        #[arg(long, default_value("true"))]
         bool_def3: bool,
 
         #[arg(long)]
@@ -70,9 +70,9 @@ fn test() {
         "--prefix2.a=8675309",
         "--prefix2.fieldName=d",
         "--prefix2.boolRequired=false",
-        "--prefix2.boolDef1=true",
-        "--prefix2.boolDef2=true",
-        "--prefix2.boolDef3=true",
+        "--prefix2.boolDef1=false",
+        "--prefix2.boolDef2=false",
+        "--prefix2.boolDef3=false",
         "--prefix2.boolJustFlag",
         "--prefix2.boolSeparateWord",
         "true",
@@ -92,9 +92,9 @@ fn test() {
                 field_name: "d".to_owned(),
                 a: 8675309,
                 bool_required: false,
-                bool_def1: true,
-                bool_def2: true,
-                bool_def3: true,
+                bool_def1: false,
+                bool_def2: false,
+                bool_def3: false,
                 bool_just_flag: true,
                 bool_separate_word: true,
                 bool_with_equals: true,

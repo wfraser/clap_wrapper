@@ -125,30 +125,38 @@ fn get_bool_default(field: &Field) -> syn::Result<Option<bool>> {
         }
         let exprs = attr.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
         for expr in exprs {
-            match expr {
+            let value = match expr {
                 Expr::Assign(expr) => match expr.left.to_token_stream().to_string().as_str() {
                     "default_value" => {
-                        default = Some(expr_str_lit(&expr.right)? == "true");
+                        Some(expr_str_lit(&expr.right)? == "true")
                     }
                     "default_value_t" => match expr.right.as_ref() {
                         Expr::Lit(ExprLit {
                             lit: Lit::Bool(LitBool { value, .. }),
                             ..
                         }) => {
-                            default = Some(*value);
+                            Some(*value)
                         }
                         _ => return Err(Error::new_spanned(expr.right, "expected a bool literal")),
                     },
-                    _ => (),
+                    _ => None,
                 },
                 Expr::Call(call) if call.func.to_token_stream().to_string() == "default_value" => {
                     let arg = call
                         .args
                         .first()
                         .ok_or_else(|| Error::new_spanned(&call, "expected a single arg"))?;
-                    default = Some(expr_str_lit(arg)? == "true");
+                    Some(expr_str_lit(arg)? == "true")
                 }
-                _ => (),
+                _ => None,
+            };
+            if let Some(new_value) = value {
+                if let Some(old_value) = default {
+                    if new_value != old_value {
+                        return Err(Error::new_spanned(field, "conflicting default_value and/or default_value_t values"));
+                    }
+                }
+                default = Some(new_value);
             }
         }
     }
