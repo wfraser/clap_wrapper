@@ -168,13 +168,31 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                 .ok_or_else(|| Error::new(field.span(), "field must have a name"))?
                 .to_string();
             for attr in &mut field.attrs {
-                match &mut attr.meta {
-                    Meta::List(list)
-                        if list.path.get_ident().map(ToString::to_string).as_deref()
-                            == Some("arg") =>
-                    {
+                if let Meta::List(list) = &mut attr.meta {
+                    let head = list.path.get_ident().map(ToString::to_string).unwrap_or_default();
+                    if head == "clap" {
+                        return Err(Error::new_spanned(field, "do not use the #[clap] attribute on fields; use #[arg] or #[command] instead"));
+                    } else if head == "arg" {
                         let mut exprs = Punctuated::<Expr, Token![,]>::parse_terminated
                             .parse2(list.tokens.clone())?;
+
+                        fn is_noprefix(expr: &Expr) -> bool {
+                            matches!(expr, Expr::Path(p) if p.path.is_ident("noprefix"))
+                        }
+
+                        let mut noprefix = false;
+                        exprs = exprs.into_iter()
+                            .filter(|x| if is_noprefix(x) {
+                                noprefix = true;
+                                false
+                            } else {
+                                true
+                            })
+                            .collect();
+                        if noprefix {
+                            list.tokens = exprs.to_token_stream();
+                            continue;
+                        }
 
                         for expr in &mut exprs {
                             match expr {
@@ -225,8 +243,7 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
 
                         list.tokens = exprs.to_token_stream();
                     }
-                    _ => (),
-                };
+                }
             }
         }
     }

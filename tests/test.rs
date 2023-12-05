@@ -14,6 +14,9 @@ fn test() {
 
         #[arg(long("renamed2"))]
         c: String,
+
+        #[arg(long = "jk-lol", noprefix)]
+        secret: i32,
     }
 
     #[clap_wrapper(prefix = "prefix2")]
@@ -60,6 +63,7 @@ fn test() {
         "--prefix1.a=a",
         "--prefix1.renamed1=b",
         "--prefix1.renamed2=c",
+        "--jk-lol=999",
         "--prefix2.fieldName=d",
         "--prefix2.boolRequired=false",
         "--prefix2.boolDef1=true",
@@ -78,6 +82,7 @@ fn test() {
                 a: "a".to_owned(),
                 b: "b".to_owned(),
                 c: "c".to_owned(),
+                secret: 999,
             },
             inner2: B {
                 field_name: "d".to_owned(),
