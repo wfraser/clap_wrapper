@@ -7,8 +7,8 @@ use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_macro_input, Data, DataStruct, DeriveInput, Error, Expr, ExprAssign, ExprLit, ExprPath,
-    Field, Lit, LitBool, Meta, Token,
+    parse_macro_input, Data, DataStruct, DeriveInput, Error, Expr, ExprAssign, ExprCall, ExprLit,
+    ExprPath, Field, Lit, LitBool, Meta, Token,
 };
 
 #[derive(Debug, Default)]
@@ -82,6 +82,7 @@ fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
             for field in fields {
                 if field.ty.to_token_stream().to_string() == "bool" {
                     let default = get_bool_default(field)?;
+                    let required = field_is_required(field)?;
 
                     // Insert at the front, so later (i.e. manually specified) clap attributes can
                     // override it.
@@ -99,11 +100,11 @@ fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
                         },
                     );
 
-                    if let Some(default) = default {
+                    if default.is_none() && !required {
                         field.attrs.insert(
                             1,
                             syn::parse_quote! {
-                                #[arg(default_value_t = #default)]
+                                #[arg(default_value_t = false)]
                             },
                         );
                     }
@@ -318,6 +319,41 @@ fn get_field_name_style(input: &DeriveInput) -> syn::Result<fn(&str) -> String> 
     }
 
     Ok(name_style)
+}
+
+fn field_is_required(field: &Field) -> syn::Result<bool> {
+    let mut required = false;
+    for attr in field.attrs.iter().filter(|a| a.path().is_ident("arg")) {
+        let exprs = attr.parse_args_with(Punctuated::<Expr, Token![,]>::parse_terminated)?;
+        for expr in &exprs {
+            let (left, right) = match expr {
+                Expr::Call(ExprCall { func, args, .. }) if args.len() == 1 => {
+                    (func.as_ref(), args.first().unwrap())
+                }
+                Expr::Assign(ExprAssign { left, right, .. }) => (left.as_ref(), right.as_ref()),
+                _ => continue,
+            };
+            if expr_is_ident(left, "required") {
+                if let Expr::Lit(ExprLit {
+                    lit: Lit::Bool(litbool),
+                    ..
+                }) = right
+                {
+                    required = litbool.value;
+                }
+            }
+        }
+    }
+    Ok(required)
+}
+
+fn expr_is_ident(expr: &Expr, ident: &str) -> bool {
+    if let Expr::Path(ExprPath { path, .. }) = expr {
+        if path.is_ident(ident) {
+            return true;
+        }
+    }
+    false
 }
 
 fn expr_str_lit(expr: &Expr) -> syn::Result<String> {

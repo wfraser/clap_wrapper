@@ -8,12 +8,12 @@ use clap_wrapper::clap_wrapper;
 #[derive(Parser, Debug)]
 #[clap(rename_all = "camel")]
 struct MyArgs {
-    /// This has default name.
-    #[arg(long, default_value = "false")]
+    /// This has default value of true, but can be turned off with =false.
+    #[arg(long, default_value = "true")]
     boolean_flag: bool,
 
     /// This has to be specified.
-    #[arg(long)]
+    #[arg(long, required = true)]
     reqd_bool: bool,
 
     #[arg(long("renamed"), default_value_t = 42)]
