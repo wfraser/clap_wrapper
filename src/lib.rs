@@ -8,7 +8,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
     parse_macro_input, Data, DataStruct, DeriveInput, Error, Expr, ExprAssign, ExprCall, ExprLit,
-    ExprPath, Field, Lit, LitBool, Meta, Token,
+    ExprPath, Field, Lit, LitBool, Meta, MetaNameValue, Token,
 };
 
 #[derive(Debug, Default)]
@@ -38,6 +38,30 @@ fn apply(main_attr: TokenStream, input: &mut DeriveInput) -> syn::Result<()> {
             }
             _ => return Err(Error::new_spanned(&expr.left, "unrecognized attribute")),
         }
+    }
+
+    // Grab the first line of doc comment for the struct and use it as the help heading for the
+    // args.
+    let mut heading = None;
+    for attr in &input.attrs {
+        if attr.path().is_ident("doc") {
+            let Meta::NameValue(MetaNameValue { value, .. }) = &attr.meta else {
+                return Err(Error::new_spanned(attr, "malformed #[doc] attribute"));
+            };
+            if let Expr::Lit(ExprLit {
+                lit: Lit::Str(s), ..
+            }) = value
+            {
+                heading = Some(s.value());
+                break;
+            }
+        }
+    }
+    if let Some(heading) = heading {
+        let heading = heading.trim();
+        input.attrs.push(syn::parse_quote! {
+            #[command(next_help_heading = #heading)]
+        });
     }
 
     if let Ok(false) = any_clap_here(input) {

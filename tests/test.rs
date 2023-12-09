@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use clap::{CommandFactory, Parser};
 use clap_wrapper::clap_wrapper;
 
+/// This is struct A.
 #[clap_wrapper(prefix = "prefix1")]
 #[derive(Parser, Debug, PartialEq)]
 struct A {
@@ -21,6 +22,7 @@ struct A {
     d: i32,
 }
 
+/// This is struct B.
 #[clap_wrapper(prefix = "prefix2")]
 #[derive(Parser, Debug, PartialEq)]
 #[command(rename_all = "camel")]
@@ -128,4 +130,34 @@ fn test_args() {
     assert_eq!(args["prefix2.boolJustFlag"].is_required_set(), false);
     assert_eq!(args["prefix2.boolSeparateWord"].is_required_set(), false);
     assert_eq!(args["prefix2.boolWithEquals"].is_required_set(), false);
+
+    for flag in &[
+        "prefix1.a",
+        "prefix1.renamed1",
+        "prefix1.renamed2",
+        "not-prefixed",
+    ] {
+        assert_eq!(
+            args[flag].get_help_heading(),
+            Some("This is struct A."),
+            "flag {flag} has wrong heading"
+        );
+    }
+    for flag in &[
+        "prefix2.fieldName",
+        "prefix2.a",
+        "prefix2.boolRequired",
+        "prefix2.boolDef1",
+        "prefix2.boolDef2",
+        "prefix2.boolDef3",
+        "prefix2.boolJustFlag",
+        "prefix2.boolSeparateWord",
+        "prefix2.boolWithEquals",
+    ] {
+        assert_eq!(
+            args[flag].get_help_heading(),
+            Some("This is struct B."),
+            "flag {flag} has wrong heading"
+        );
+    }
 }
