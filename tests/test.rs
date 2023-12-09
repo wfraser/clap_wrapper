@@ -1,4 +1,7 @@
+#![allow(clippy::bool_assert_comparison)] // much easier to read when several are in sequence
+
 use std::collections::HashMap;
+
 use clap::{CommandFactory, Parser};
 use clap_wrapper::clap_wrapper;
 
@@ -107,7 +110,8 @@ fn test_parse() {
 #[test]
 fn test_args() {
     let cmd = Outer::command();
-    let args = cmd.get_arguments()
+    let args = cmd
+        .get_arguments()
         .map(|arg| (arg.get_long().expect("must be long arg"), arg))
         .collect::<HashMap<_, _>>();
     assert_eq!(args["prefix1.a"].get_id(), "PREFIX1_A");

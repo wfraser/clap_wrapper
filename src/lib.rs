@@ -166,114 +166,115 @@ fn get_bool_default(field: &Field) -> syn::Result<Option<bool>> {
 fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Result<()> {
     let name_style = get_field_name_style(input)?;
 
-    if let Data::Struct(DataStruct { fields, .. }) = &mut input.data {
-        for field in fields {
-            let field_name = field
-                .ident
-                .as_ref()
-                .ok_or_else(|| Error::new(field.span(), "field must have a name"))?
-                .to_string();
-            for attr in &mut field.attrs {
-                if let Meta::List(list) = &mut attr.meta {
-                    let head = list
-                        .path
-                        .get_ident()
-                        .map(ToString::to_string)
-                        .unwrap_or_default();
-                    if head == "clap" {
-                        return Err(Error::new_spanned(field, "do not use the #[clap] attribute on fields; use #[arg] or #[command] instead"));
-                    } else if head == "arg" {
-                        let mut exprs = Punctuated::<Expr, Token![,]>::parse_terminated
-                            .parse2(list.tokens.clone())?;
+    let Data::Struct(DataStruct { fields, .. }) = &mut input.data else {
+        return Err(Error::new_spanned(
+            input,
+            "prefix can only be applied to a struct",
+        ));
+    };
 
-                        // Unless ID was explicitly set, add the prefix to it to prevent
-                        // collisions with other structs.
-                        let explicit_id = exprs.iter().any(|x| {
-                            let head = match x {
-                                Expr::Call(expr) => &expr.func,
-                                Expr::Assign(expr) => &expr.left,
-                                _ => return false,
-                            };
-                            head.to_token_stream().to_string() == "id"
+    for field in fields {
+        let field_name = field
+            .ident
+            .as_ref()
+            .ok_or_else(|| Error::new(field.span(), "field must have a name"))?
+            .to_string();
+        for attr in &mut field.attrs {
+            if let Meta::List(list) = &mut attr.meta {
+                let head = list
+                    .path
+                    .get_ident()
+                    .map(ToString::to_string)
+                    .unwrap_or_default();
+                if head == "clap" {
+                    return Err(Error::new_spanned(field, "do not use the #[clap] attribute on fields; use #[arg] or #[command] instead"));
+                } else if head == "arg" {
+                    let mut exprs = Punctuated::<Expr, Token![,]>::parse_terminated
+                        .parse2(list.tokens.clone())?;
+
+                    // Unless ID was explicitly set, add the prefix to it to prevent
+                    // collisions with other structs.
+                    let explicit_id = exprs.iter().any(|x| {
+                        let head = match x {
+                            Expr::Call(expr) => &expr.func,
+                            Expr::Assign(expr) => &expr.left,
+                            _ => return false,
+                        };
+                        head.to_token_stream().to_string() == "id"
+                    });
+                    if !explicit_id {
+                        let prefixed_id = format!("{prefix}.{field_name}").to_shouty_snake_case();
+                        exprs.push(syn::parse_quote! {
+                            id(#prefixed_id)
                         });
-                        if !explicit_id {
-                            let prefixed_id =
-                                format!("{prefix}.{field_name}").to_shouty_snake_case();
-                            exprs.push(syn::parse_quote! {
-                                id(#prefixed_id)
-                            });
-                        }
+                    }
 
-                        // Presence of a made-up "noprefix" attribute disables any prefixing of the
-                        // flag.
-                        let mut noprefix = false;
-                        exprs = exprs
-                            .into_iter()
-                            .filter(|x| {
-                                if matches!(x, Expr::Path(p) if p.path.is_ident("noprefix")) {
-                                    noprefix = true;
-                                    // Remove this expression so clap doesn't choke on it.
-                                    false
-                                } else {
-                                    true
-                                }
-                            })
-                            .collect();
-                        if noprefix {
-                            // Done with this field.
-                            list.tokens = exprs.to_token_stream();
-                            continue;
-                        }
+                    // Presence of a made-up "noprefix" attribute disables any prefixing of the
+                    // flag.
+                    let mut noprefix = false;
+                    exprs = exprs
+                        .into_iter()
+                        .filter(|x| {
+                            if matches!(x, Expr::Path(p) if p.path.is_ident("noprefix")) {
+                                noprefix = true;
+                                // Remove this expression so clap doesn't choke on it.
+                                false
+                            } else {
+                                true
+                            }
+                        })
+                        .collect();
+                    if noprefix {
+                        // Done with this field.
+                        list.tokens = exprs.to_token_stream();
+                        continue;
+                    }
 
-                        for expr in &mut exprs {
-                            match expr {
-                                // long = "foo"
-                                Expr::Assign(expr)
-                                    if expr.left.to_token_stream().to_string() == "long" =>
-                                {
-                                    let renamed = expr_str_lit(&expr.right)?;
-                                    let name = format!("{prefix}.{renamed}");
-                                    *expr =
-                                        syn::parse_quote_spanned! { expr.span() => long = #name };
-                                }
-                                // long("foo")
-                                Expr::Call(expr)
-                                    if expr.func.to_token_stream().to_string() == "long" =>
-                                {
-                                    match (expr.args.first(), expr.args.len()) {
-                                        // long("foo")
-                                        (Some(arg), 1) => {
-                                            let renamed = expr_str_lit(arg)?;
-                                            let name = format!("{prefix}.{renamed}");
-                                            *expr = syn::parse_quote_spanned! { expr.span() => long(#name) };
-                                        }
-                                        // long() -- assuming this is actually valid
-                                        (None, 0) => {
-                                            let name =
-                                                format!("{prefix}.{}", name_style(&field_name));
-                                            *expr = syn::parse_quote_spanned! { expr.span() => long(#name) };
-                                        }
-                                        _ => {
-                                            return Err(Error::new_spanned(
-                                                expr,
-                                                "expected exactly one argument",
-                                            ));
-                                        }
+                    for expr in &mut exprs {
+                        match expr {
+                            // long = "foo"
+                            Expr::Assign(expr)
+                                if expr.left.to_token_stream().to_string() == "long" =>
+                            {
+                                let renamed = expr_str_lit(&expr.right)?;
+                                let name = format!("{prefix}.{renamed}");
+                                *expr = syn::parse_quote_spanned! { expr.span() => long = #name };
+                            }
+                            // long("foo")
+                            Expr::Call(expr)
+                                if expr.func.to_token_stream().to_string() == "long" =>
+                            {
+                                match (expr.args.first(), expr.args.len()) {
+                                    // long("foo")
+                                    (Some(arg), 1) => {
+                                        let renamed = expr_str_lit(arg)?;
+                                        let name = format!("{prefix}.{renamed}");
+                                        *expr = syn::parse_quote_spanned! { expr.span() => long(#name) };
+                                    }
+                                    // long() -- assuming this is actually valid
+                                    (None, 0) => {
+                                        let name = format!("{prefix}.{}", name_style(&field_name));
+                                        *expr = syn::parse_quote_spanned! { expr.span() => long(#name) };
+                                    }
+                                    _ => {
+                                        return Err(Error::new_spanned(
+                                            expr,
+                                            "expected exactly one argument",
+                                        ));
                                     }
                                 }
-                                // long
-                                Expr::Path(path) if path.path.is_ident("long") => {
-                                    let name = format!("{prefix}.{}", name_style(&field_name));
-                                    *expr =
-                                        syn::parse_quote_spanned! { path.span() => long(#name) };
-                                }
-                                // anything else just remains unchanged
-                                _ => (),
                             }
+                            // long
+                            Expr::Path(path) if path.path.is_ident("long") => {
+                                let name = format!("{prefix}.{}", name_style(&field_name));
+                                *expr = syn::parse_quote_spanned! { path.span() => long(#name) };
+                            }
+                            // anything else just remains unchanged
+                            _ => (),
                         }
-
-                        list.tokens = exprs.to_token_stream();
                     }
+
+                    list.tokens = exprs.to_token_stream();
                 }
             }
         }
