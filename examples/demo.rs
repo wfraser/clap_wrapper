@@ -1,59 +1,51 @@
-use std::str::FromStr;
+use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use clap_wrapper::clap_wrapper;
-
-/// Some cool struct that I want to fold into a bigger options struct.
-#[clap_wrapper(prefix = "myprefix")]
-#[derive(Parser, Debug)]
-#[clap(rename_all = "camel")]
-struct MyArgs {
-    /// This has default value of true, but can be turned off with =false.
-    #[arg(long, default_value = "true")]
-    boolean_flag: bool,
-
-    /// This has to be specified.
-    #[arg(long, required = true)]
-    reqd_bool: bool,
-
-    #[arg(long("renamed"), default_value_t = 42)]
-    int_field: i32,
-
-    #[arg(long = "renamed2", action = clap::ArgAction::Set)]
-    str_field: String,
-
-    #[arg(long)]
-    blah_blah: Option<String>,
-
-    #[arg(long)]
-    friend: Option<Animal>,
-}
-
-#[derive(Debug, Clone, Copy)]
-enum Animal {
-    Cat,
-    Dog,
-}
-
-impl FromStr for Animal {
-    type Err = &'static str;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "cat" => Self::Cat,
-            "dog" => Self::Dog,
-            _ => return Err("unknown Animal variant"),
-        })
-    }
-}
 
 /// The main args struct.
 #[derive(Parser, Debug)]
 struct Args {
+    /// Path to config file.
     #[arg(long)]
-    outer: Option<String>,
+    config: Option<PathBuf>,
 
     #[command(flatten)]
-    inner: MyArgs,
+    http: HttpOptions,
+
+    #[command(flatten)]
+    debug: DebugOptions,
+}
+
+#[clap_wrapper(prefix = "http")]
+#[derive(Parser, Debug)]
+#[command(next_help_heading = "HTTP Options")]
+struct HttpOptions {
+    #[arg(long)]
+    port: u16,
+
+    #[arg(long = "tls_cert")]
+    tls_cert_path: Option<PathBuf>,
+
+    #[arg(long = "tls_key")]
+    tls_key_path: Option<PathBuf>,
+}
+
+#[clap_wrapper(prefix = "debug")]
+#[derive(Parser, Debug)]
+#[command(next_help_heading = "Debugging Options")]
+struct DebugOptions {
+    #[arg(long, default_value = "syslog")]
+    output: DebugOutput,
+
+    #[arg(long, short, noprefix)]
+    verbose: bool,
+}
+
+#[derive(Debug, ValueEnum, Clone)]
+enum DebugOutput {
+    Syslog,
+    Stderr,
 }
 
 fn main() {
