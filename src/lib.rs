@@ -216,21 +216,28 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                     let mut exprs = Punctuated::<Expr, Token![,]>::parse_terminated
                         .parse2(list.tokens.clone())?;
 
-                    // Unless ID was explicitly set, add the prefix to it to prevent
-                    // collisions with other structs.
-                    let explicit_id = exprs.iter().any(|x| {
+                    // Add the prefix to the arg ID it to prevent collisions with other structs.
+                    let prefixed_id = format!("{prefix}.{field_name}");
+                    exprs.push(syn::parse_quote! {
+                        id(#prefixed_id)
+                    });
+
+                    // Also add the prefix to the name unless one was specified manually.
+                    let explicit_name = exprs.iter().any(|x| {
                         let head = match x {
                             Expr::Call(expr) => &expr.func,
                             Expr::Assign(expr) => &expr.left,
                             _ => return false,
                         };
-                        head.to_token_stream().to_string() == "id"
+                        head.to_token_stream().to_string() == "value_name"
                     });
-                    if !explicit_id {
-                        let prefixed_id = format!("{prefix}.{field_name}").to_shouty_snake_case();
-                        exprs.push(syn::parse_quote! {
-                            id(#prefixed_id)
-                        });
+                    if !explicit_name {
+                        let value_name = if field.ty.to_token_stream().to_string() == "bool" {
+                            "BOOL".to_owned()
+                        } else {
+                            field_name.to_shouty_snake_case()
+                        };
+                        exprs.push(syn::parse_quote!{ value_name = #value_name });
                     }
 
                     // Presence of a made-up "noprefix" attribute disables any prefixing of the

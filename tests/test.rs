@@ -30,7 +30,7 @@ struct B {
     #[arg(long)]
     field_name: String,
 
-    #[arg(long)]
+    #[arg(long, value_name = "number")]
     a: i32,
 
     #[arg(long, required = true)]
@@ -114,28 +114,30 @@ fn test_args() {
     let cmd = Outer::command();
     let args = cmd
         .get_arguments()
-        .map(|arg| (arg.get_long().expect("must be long arg"), arg))
+        .map(|arg| (arg.get_id().as_str(), arg))
         .collect::<HashMap<_, _>>();
-    assert_eq!(args["prefix1.a"].get_id(), "PREFIX1_A");
-    assert_eq!(args["prefix1.renamed1"].get_id(), "PREFIX1_B");
-    assert_eq!(args["prefix1.renamed2"].get_id(), "PREFIX1_C");
-    assert_eq!(args["not-prefixed"].get_id(), "PREFIX1_D");
-    assert_eq!(args["prefix2.fieldName"].get_id(), "PREFIX2_FIELD_NAME");
-    assert_eq!(args["prefix2.a"].get_id(), "PREFIX2_A");
+    assert_eq!(args["prefix1.a"].get_long(), Some("prefix1.a"));
+    assert_eq!(args["prefix1.b"].get_long(), Some("prefix1.renamed1"));
+    assert_eq!(args["prefix1.c"].get_long(), Some("prefix1.renamed2"));
+    assert_eq!(args["prefix1.d"].get_long(), Some("not-prefixed"));
 
-    assert_eq!(args["prefix2.boolRequired"].is_required_set(), true);
-    assert_eq!(args["prefix2.boolDef1"].is_required_set(), false);
-    assert_eq!(args["prefix2.boolDef2"].is_required_set(), false);
-    assert_eq!(args["prefix2.boolDef3"].is_required_set(), false);
-    assert_eq!(args["prefix2.boolJustFlag"].is_required_set(), false);
-    assert_eq!(args["prefix2.boolSeparateWord"].is_required_set(), false);
-    assert_eq!(args["prefix2.boolWithEquals"].is_required_set(), false);
+    assert_eq!(args["prefix2.field_name"].get_long(), Some("prefix2.fieldName"));
+
+    assert_eq!(args["prefix2.a"].get_long(), Some("prefix2.a"));
+
+    assert_eq!(args["prefix2.bool_required"].is_required_set(), true);
+    assert_eq!(args["prefix2.bool_def1"].is_required_set(), false);
+    assert_eq!(args["prefix2.bool_def2"].is_required_set(), false);
+    assert_eq!(args["prefix2.bool_def3"].is_required_set(), false);
+    assert_eq!(args["prefix2.bool_just_flag"].is_required_set(), false);
+    assert_eq!(args["prefix2.bool_separate_word"].is_required_set(), false);
+    assert_eq!(args["prefix2.bool_with_equals"].is_required_set(), false);
 
     for flag in &[
         "prefix1.a",
-        "prefix1.renamed1",
-        "prefix1.renamed2",
-        "not-prefixed",
+        "prefix1.b",
+        "prefix1.c",
+        "prefix1.d",
     ] {
         assert_eq!(
             args[flag].get_help_heading(),
@@ -144,15 +146,15 @@ fn test_args() {
         );
     }
     for flag in &[
-        "prefix2.fieldName",
+        "prefix2.field_name",
         "prefix2.a",
-        "prefix2.boolRequired",
-        "prefix2.boolDef1",
-        "prefix2.boolDef2",
-        "prefix2.boolDef3",
-        "prefix2.boolJustFlag",
-        "prefix2.boolSeparateWord",
-        "prefix2.boolWithEquals",
+        "prefix2.bool_required",
+        "prefix2.bool_def1",
+        "prefix2.bool_def2",
+        "prefix2.bool_def3",
+        "prefix2.bool_just_flag",
+        "prefix2.bool_separate_word",
+        "prefix2.bool_with_equals",
     ] {
         assert_eq!(
             args[flag].get_help_heading(),
