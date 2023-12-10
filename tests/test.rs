@@ -121,7 +121,10 @@ fn test_args() {
     assert_eq!(args["prefix1.c"].get_long(), Some("prefix1.renamed2"));
     assert_eq!(args["prefix1.d"].get_long(), Some("not-prefixed"));
 
-    assert_eq!(args["prefix2.field_name"].get_long(), Some("prefix2.fieldName"));
+    assert_eq!(
+        args["prefix2.field_name"].get_long(),
+        Some("prefix2.fieldName")
+    );
 
     assert_eq!(args["prefix2.a"].get_long(), Some("prefix2.a"));
 
@@ -133,12 +136,7 @@ fn test_args() {
     assert_eq!(args["prefix2.bool_separate_word"].is_required_set(), false);
     assert_eq!(args["prefix2.bool_with_equals"].is_required_set(), false);
 
-    for flag in &[
-        "prefix1.a",
-        "prefix1.b",
-        "prefix1.c",
-        "prefix1.d",
-    ] {
+    for flag in &["prefix1.a", "prefix1.b", "prefix1.c", "prefix1.d"] {
         assert_eq!(
             args[flag].get_help_heading(),
             Some("This is struct A."),

@@ -151,16 +151,12 @@ fn get_bool_default(field: &Field) -> syn::Result<Option<bool>> {
         for expr in exprs {
             let value = match expr {
                 Expr::Assign(expr) => match expr.left.to_token_stream().to_string().as_str() {
-                    "default_value" => {
-                        Some(expr_str_lit(&expr.right)? == "true")
-                    }
+                    "default_value" => Some(expr_str_lit(&expr.right)? == "true"),
                     "default_value_t" => match expr.right.as_ref() {
                         Expr::Lit(ExprLit {
                             lit: Lit::Bool(LitBool { value, .. }),
                             ..
-                        }) => {
-                            Some(*value)
-                        }
+                        }) => Some(*value),
                         _ => return Err(Error::new_spanned(expr.right, "expected a bool literal")),
                     },
                     _ => None,
@@ -177,7 +173,10 @@ fn get_bool_default(field: &Field) -> syn::Result<Option<bool>> {
             if let Some(new_value) = value {
                 if let Some(old_value) = default {
                     if new_value != old_value {
-                        return Err(Error::new_spanned(field, "conflicting default_value and/or default_value_t values"));
+                        return Err(Error::new_spanned(
+                            field,
+                            "conflicting default_value and/or default_value_t values",
+                        ));
                     }
                 }
                 default = Some(new_value);
@@ -237,7 +236,7 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                         } else {
                             field_name.to_shouty_snake_case()
                         };
-                        exprs.push(syn::parse_quote!{ value_name = #value_name });
+                        exprs.push(syn::parse_quote! { value_name = #value_name });
                     }
 
                     // Presence of a made-up "noprefix" attribute disables any prefixing of the
