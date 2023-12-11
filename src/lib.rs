@@ -100,6 +100,7 @@ fn any_clap_here(input: &DeriveInput) -> syn::Result<bool> {
     }
     Ok(false)
 }
+
 fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
     match &mut input.data {
         Data::Struct(DataStruct { fields, .. }) => {
