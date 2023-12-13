@@ -40,36 +40,14 @@ fn apply(main_attr: TokenStream, input: &mut DeriveInput) -> syn::Result<()> {
         }
     }
 
-    // Grab the first line of doc comment for the struct and use it as the help heading for the
-    // args.
-    let mut heading = None;
-    for attr in &input.attrs {
-        if attr.path().is_ident("doc") {
-            let Meta::NameValue(MetaNameValue { value, .. }) = &attr.meta else {
-                return Err(Error::new_spanned(attr, "malformed #[doc] attribute"));
-            };
-            if let Expr::Lit(ExprLit {
-                lit: Lit::Str(s), ..
-            }) = value
-            {
-                heading = Some(s.value());
-                break;
-            }
-        }
-    }
-    if let Some(heading) = heading {
-        let heading = heading.trim();
-        input.attrs.push(syn::parse_quote! {
-            #[command(next_help_heading = #heading)]
-        });
-    }
-
     if let Ok(false) = any_clap_here(input) {
         return Err(Error::new_spanned(
             attr_exprs,
             "this attribute needs to be put before any #[derive(clap::Parser)]",
         ));
     }
+
+    add_help_heading(input)?;
 
     if let Some(prefix) = opts.prefix {
         add_prefix_to_everything(&prefix, input)?;
