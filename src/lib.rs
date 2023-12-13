@@ -123,6 +123,7 @@ fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
                         // "--flag", not "--flag=whatever). Setting this to anything except True
                         // would be super confusing, and it's not related to the default value.
                         default_missing_value = "true",
+                        value_name = "BOOL",
                     )]
                 },
             );
@@ -220,7 +221,8 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                         id(#prefixed_id)
                     });
 
-                    // Also add the prefix to the name unless one was specified manually.
+                    // Use the field name as the value name unless one was specified manually,
+                    // or if it's a bool (those get handled separately).
                     let explicit_name = exprs.iter().any(|x| {
                         let head = match x {
                             Expr::Call(expr) => &expr.func,
@@ -229,12 +231,8 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                         };
                         head.to_token_stream().to_string() == "value_name"
                     });
-                    if !explicit_name {
-                        let value_name = if field.ty.to_token_stream().to_string() == "bool" {
-                            "BOOL".to_owned()
-                        } else {
-                            field_name.to_shouty_snake_case()
-                        };
+                    if !explicit_name && field.ty.to_token_stream().to_string() != "bool" {
+                        let value_name = field_name.to_shouty_snake_case();
                         exprs.push(syn::parse_quote! { value_name = #value_name });
                     }
 
