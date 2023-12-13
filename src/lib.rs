@@ -79,43 +79,63 @@ fn any_clap_here(input: &DeriveInput) -> syn::Result<bool> {
     Ok(false)
 }
 
-fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
-    match &mut input.data {
-        Data::Struct(DataStruct { fields, .. }) => {
-            for field in fields {
-                if field.ty.to_token_stream().to_string() == "bool" {
-                    let default = get_bool_default(field)?;
-                    let required = field_is_required(field)?;
-
-                    // Insert at the front, so later (i.e. manually specified) clap attributes can
-                    // override it.
-                    field.attrs.insert(
-                        0,
-                        syn::parse_quote! {
-                            #[arg(
-                                num_args(0..=1),
-                                action=clap::ArgAction::Set,
-                                // This is for when the flag is specified without any value (i.e. as
-                                // "--flag", not "--flag=whatever). Setting this to anything except True
-                                // would be super confusing, and it's not related to the default value.
-                                default_missing_value = "true",
-                            )]
-                        },
-                    );
-
-                    if default.is_none() && !required {
-                        field.attrs.insert(
-                            1,
-                            syn::parse_quote! {
-                                #[arg(default_value_t = false)]
-                            },
-                        );
-                    }
-                }
+/// Grab the first line of doc comment for the struct and use it as the help heading for the args.
+fn add_help_heading(input: &mut DeriveInput) -> syn::Result<()> {
+    let mut heading = None;
+    for attr in &input.attrs {
+        if attr.path().is_ident("doc") {
+            let Meta::NameValue(MetaNameValue { value, .. }) = &attr.meta else {
+                return Err(Error::new_spanned(attr, "malformed #[doc] attribute"));
+            };
+            if let Ok(s) = expr_str_lit(value) {
+                heading = Some(s);
+                break;
             }
         }
-        Data::Enum(_) => {}
-        Data::Union(_) => {}
+    }
+    if let Some(heading) = heading {
+        let heading = heading.trim();
+        input.attrs.push(syn::parse_quote! {
+            #[command(next_help_heading = #heading)]
+        });
+    }
+    Ok(())
+}
+
+fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
+    let Data::Struct(DataStruct { fields, .. }) = &mut input.data else {
+        return Ok(());
+    };
+    for field in fields {
+        if field.ty.to_token_stream().to_string() == "bool" {
+            let default = get_bool_default(field)?;
+            let required = field_is_required(field)?;
+
+            // Insert at the front, so later (i.e. manually specified) clap attributes can
+            // override it.
+            field.attrs.insert(
+                0,
+                syn::parse_quote! {
+                    #[arg(
+                        num_args(0..=1),
+                        action=clap::ArgAction::Set,
+                        // This is for when the flag is specified without any value (i.e. as
+                        // "--flag", not "--flag=whatever). Setting this to anything except True
+                        // would be super confusing, and it's not related to the default value.
+                        default_missing_value = "true",
+                    )]
+                },
+            );
+
+            if default.is_none() && !required {
+                field.attrs.insert(
+                    1,
+                    syn::parse_quote! {
+                        #[arg(default_value_t = false)]
+                    },
+                );
+            }
+        }
     }
     Ok(())
 }
