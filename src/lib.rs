@@ -43,7 +43,7 @@ fn apply(main_attr: TokenStream, input: &mut DeriveInput) -> syn::Result<()> {
     if let Ok(false) = any_clap_here(input) {
         return Err(Error::new_spanned(
             attr_exprs,
-            "this attribute needs to be put before any #[derive(clap::Parser)]",
+            "this attribute needs to be put before #[derive(Parser)]",
         ));
     }
 
