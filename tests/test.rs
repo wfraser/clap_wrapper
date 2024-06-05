@@ -46,13 +46,13 @@ struct B {
     bool_def3: bool,
 
     #[arg(long)]
+    bool_with_equals: bool,
+
+    #[arg(long)]
     bool_just_flag: bool,
 
-    #[arg(long)]
-    bool_separate_word: bool,
-
-    #[arg(long)]
-    bool_with_equals: bool,
+    #[arg()]
+    value: String,
 }
 
 #[clap_wrapper()]
@@ -79,10 +79,9 @@ fn test_parse() {
         "--prefix2.boolDef1=false",
         "--prefix2.boolDef2=false",
         "--prefix2.boolDef3=false",
-        "--prefix2.boolJustFlag",
-        "--prefix2.boolSeparateWord",
-        "true",
         "--prefix2.boolWithEquals=true",
+        "--prefix2.boolJustFlag",
+        "value",
     ]);
 
     assert_eq!(
@@ -101,9 +100,9 @@ fn test_parse() {
                 bool_def1: false,
                 bool_def2: false,
                 bool_def3: false,
-                bool_just_flag: true,
-                bool_separate_word: true,
                 bool_with_equals: true,
+                bool_just_flag: true,
+                value: "value".to_owned(),
             }
         }
     );
@@ -132,9 +131,8 @@ fn test_args() {
     assert_eq!(args["prefix2.bool_def1"].is_required_set(), false);
     assert_eq!(args["prefix2.bool_def2"].is_required_set(), false);
     assert_eq!(args["prefix2.bool_def3"].is_required_set(), false);
-    assert_eq!(args["prefix2.bool_just_flag"].is_required_set(), false);
-    assert_eq!(args["prefix2.bool_separate_word"].is_required_set(), false);
     assert_eq!(args["prefix2.bool_with_equals"].is_required_set(), false);
+    assert_eq!(args["prefix2.bool_just_flag"].is_required_set(), false);
 
     for flag in &["prefix1.a", "prefix1.b", "prefix1.c", "prefix1.d"] {
         assert_eq!(
@@ -150,9 +148,8 @@ fn test_args() {
         "prefix2.bool_def1",
         "prefix2.bool_def2",
         "prefix2.bool_def3",
-        "prefix2.bool_just_flag",
-        "prefix2.bool_separate_word",
         "prefix2.bool_with_equals",
+        "prefix2.bool_just_flag",
     ] {
         assert_eq!(
             args[flag].get_help_heading(),

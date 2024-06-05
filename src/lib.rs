@@ -124,6 +124,8 @@ fn add_better_boolean_attrs(input: &mut DeriveInput) -> syn::Result<()> {
                         // would be super confusing, and it's not related to the default value.
                         default_missing_value = "true",
                         value_name = "BOOL",
+                        // Allowing a separate word interferes with value arguments.
+                        require_equals = true,
                     )]
                 },
             );
