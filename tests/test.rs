@@ -20,6 +20,9 @@ struct A {
 
     #[arg(long = "not-prefixed", noprefix)]
     d: i32,
+
+    #[arg(skip)]
+    e: i32,
 }
 
 /// This is struct B.
@@ -92,6 +95,7 @@ fn test_parse() {
                 b: "b".to_owned(),
                 c: "c".to_owned(),
                 d: 999,
+                e: 0,
             },
             inner2: B {
                 field_name: "d".to_owned(),
