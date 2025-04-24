@@ -249,6 +249,7 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
             // Presence of a made-up "noprefix" attribute disables any prefixing of the
             // flag.
             let mut noprefix = false;
+            let mut skip = false;
             exprs = exprs
                 .into_iter()
                 .filter(|x| {
@@ -256,11 +257,17 @@ fn add_prefix_to_everything(prefix: &str, input: &mut DeriveInput) -> syn::Resul
                         noprefix = true;
                         // Remove this expression so clap doesn't choke on it.
                         false
+                    } else if matches!(x, Expr::Path(p) if p.path.is_ident("skip")) {
+                        skip = true;
+                        false
                     } else {
                         true
                     }
                 })
                 .collect();
+            if skip {
+                continue;
+            }
             if noprefix {
                 // Done with this field.
                 list.tokens = exprs.to_token_stream();
