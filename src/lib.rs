@@ -32,11 +32,11 @@ fn apply(main_attr: TokenStream, input: &mut DeriveInput) -> syn::Result<()> {
         Punctuated::<ExprAssign, Token![,]>::parse_terminated.parse(main_attr.clone())?;
     for expr in &attr_exprs {
         let key = expr.left.to_token_stream().to_string();
-        match key.as_str() {
+        match key.trim() {
             "prefix" => {
                 opts.prefix = Some(expr_str_lit(&expr.right)?);
             }
-            _ => return Err(Error::new_spanned(&expr.left, "unrecognized attribute")),
+            _ => return Err(Error::new_spanned(&expr.left, format!("unrecognized attribute {key:?}"))),
         }
     }
 
